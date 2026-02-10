@@ -1,0 +1,15 @@
+MANIFEST.in
+pyproject.toml
+src/symbion_cognitive_collider/__init__.py
+src/symbion_cognitive_collider/collider.py
+src/symbion_cognitive_collider/detect_language.py
+src/symbion_cognitive_collider/lop.py
+src/symbion_cognitive_collider/schemas.py
+src/symbion_cognitive_collider/utils_hash.py
+src/symbion_cognitive_collider.egg-info/PKG-INFO
+src/symbion_cognitive_collider.egg-info/SOURCES.txt
+src/symbion_cognitive_collider.egg-info/dependency_links.txt
+src/symbion_cognitive_collider.egg-info/requires.txt
+src/symbion_cognitive_collider.egg-info/top_level.txt
+tests/test_basis_select.py
+tests/test_prompt_lang.py

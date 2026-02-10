@@ -1,0 +1,13 @@
+﻿pairs:
+  de: fa
+  en: hy
+  sa: el
+  la: fr
+  zh: ru
+  ar: fa
+  ru: fr
+
+rules:
+  enable_if:
+    min_energy: 0.65
+    min_confidence: 0.6

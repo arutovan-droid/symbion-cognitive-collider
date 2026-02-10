@@ -1,0 +1,41 @@
+﻿topics:
+  architecture:
+    lang: de
+    mode: system
+  logic_definition:
+    lang: sa
+    mode: precision
+  etymology_dialectic:
+    lang: el
+    mode: dialectic
+  canon_norm:
+    lang: la
+    mode: canon
+  strategy:
+    lang: zh
+    mode: strategy
+  procedural:
+    lang: en
+    mode: procedural
+  existential:
+    lang: hy
+    mode: existential
+  psycho_realism:
+    lang: ru
+    mode: psycho_realism
+  metaphor_synthesis:
+    lang: fa
+    mode: mythic
+  diplomacy_nuance:
+    lang: fr
+    mode: nuance
+  abstraction_doctrine:
+    lang: ar
+    mode: doctrine
+  sacral_symbolic:
+    lang: arc
+    mode: symbolic
+
+defaults:
+  lang: en
+  mode: procedural
