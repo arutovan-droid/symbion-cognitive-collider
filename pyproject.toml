@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "symbion-cognitive-collider"
-version = "0.1.0"
+version = "0.1.1"
 description = "Language as an ontological basis switch for Symbion Space."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,3 +27,5 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+[tool.setuptools.package-data]
+symbion_cognitive_collider = ["*.yaml"]

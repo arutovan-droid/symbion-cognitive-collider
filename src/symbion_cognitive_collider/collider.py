@@ -1,6 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from pathlib import Path
+from importlib import resources
 from typing import Dict, Optional
 
 import yaml
@@ -11,9 +11,8 @@ from .lop import classify_topic
 from .utils_hash import sha256_text
 
 def _load_yaml(name: str) -> dict:
-    p = Path(__file__).with_name(name)
-    return yaml.safe_load(p.read_text(encoding="utf-8"))
-
+    data = resources.files("symbion_cognitive_collider").joinpath(name).read_text(encoding="utf-8")
+    return yaml.safe_load(data)
 _APOSTLES = _load_yaml("apostles_map.yaml")
 _COMPLEMENTS = _load_yaml("complements.yaml")
 
