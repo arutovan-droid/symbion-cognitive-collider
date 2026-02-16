@@ -1,41 +1,208 @@
-﻿topics:
-  architecture:
-    lang: de
-    mode: system
-  logic_definition:
-    lang: sa
-    mode: precision
-  etymology_dialectic:
-    lang: el
-    mode: dialectic
-  canon_norm:
-    lang: la
-    mode: canon
-  strategy:
-    lang: zh
-    mode: strategy
-  procedural:
-    lang: en
-    mode: procedural
-  existential:
-    lang: hy
-    mode: existential
-  psycho_realism:
-    lang: ru
-    mode: psycho_realism
-  metaphor_synthesis:
-    lang: fa
-    mode: mythic
-  diplomacy_nuance:
-    lang: fr
-    mode: nuance
-  abstraction_doctrine:
-    lang: ar
-    mode: doctrine
-  sacral_symbolic:
-    lang: arc
-    mode: symbolic
+languages:
+  sa:
+    name: Sanskrit
+    role: "Pure logic, categorical precision"
+    profile:
+      logic_definition: 0.95
+      etymology_dialectic: 0.5
+      abstraction_doctrine: 0.6
+      existential: 0.3
+      canon_norm: 0.4
+      sacral_symbolic: 0.7
+      architecture: 0.1
+      strategy: 0.15
+      procedural: 0.05
+      psycho_realism: 0.1
+      metaphor_synthesis: 0.3
+      diplomacy_nuance: 0.05
+
+  el:
+    name: Greek
+    role: "Dialectics, conceptual roots"
+    profile:
+      logic_definition: 0.7
+      etymology_dialectic: 0.95
+      abstraction_doctrine: 0.5
+      existential: 0.5
+      canon_norm: 0.3
+      sacral_symbolic: 0.3
+      architecture: 0.2
+      strategy: 0.3
+      procedural: 0.05
+      psycho_realism: 0.3
+      metaphor_synthesis: 0.4
+      diplomacy_nuance: 0.2
+
+  la:
+    name: Latin
+    role: "Canon, taxonomy, formal systems"
+    profile:
+      logic_definition: 0.4
+      etymology_dialectic: 0.4
+      abstraction_doctrine: 0.4
+      existential: 0.1
+      canon_norm: 0.95
+      sacral_symbolic: 0.4
+      architecture: 0.3
+      strategy: 0.2
+      procedural: 0.15
+      psycho_realism: 0.1
+      metaphor_synthesis: 0.1
+      diplomacy_nuance: 0.3
+
+  de:
+    name: German
+    role: "Systemic reason, hierarchy, structure"
+    profile:
+      logic_definition: 0.5
+      etymology_dialectic: 0.3
+      abstraction_doctrine: 0.4
+      existential: 0.3
+      canon_norm: 0.3
+      sacral_symbolic: 0.05
+      architecture: 0.95
+      strategy: 0.4
+      procedural: 0.3
+      psycho_realism: 0.2
+      metaphor_synthesis: 0.1
+      diplomacy_nuance: 0.1
+
+  zh:
+    name: Chinese
+    role: "Strategy, part-whole, long horizons"
+    profile:
+      logic_definition: 0.3
+      etymology_dialectic: 0.2
+      abstraction_doctrine: 0.3
+      existential: 0.4
+      canon_norm: 0.2
+      sacral_symbolic: 0.3
+      architecture: 0.3
+      strategy: 0.95
+      procedural: 0.2
+      psycho_realism: 0.3
+      metaphor_synthesis: 0.3
+      diplomacy_nuance: 0.4
+
+  en:
+    name: English
+    role: "Procedural logic, implementation"
+    profile:
+      logic_definition: 0.3
+      etymology_dialectic: 0.15
+      abstraction_doctrine: 0.2
+      existential: 0.1
+      canon_norm: 0.2
+      sacral_symbolic: 0.05
+      architecture: 0.5
+      strategy: 0.3
+      procedural: 0.95
+      psycho_realism: 0.1
+      metaphor_synthesis: 0.1
+      diplomacy_nuance: 0.2
+
+  fr:
+    name: French
+    role: "Diplomacy, semantic nuance, balance"
+    profile:
+      logic_definition: 0.2
+      etymology_dialectic: 0.3
+      abstraction_doctrine: 0.2
+      existential: 0.3
+      canon_norm: 0.3
+      sacral_symbolic: 0.1
+      architecture: 0.15
+      strategy: 0.3
+      procedural: 0.1
+      psycho_realism: 0.3
+      metaphor_synthesis: 0.4
+      diplomacy_nuance: 0.95
+
+  ar:
+    name: Arabic
+    role: "Abstraction, axioms, doctrinal clarity"
+    profile:
+      logic_definition: 0.4
+      etymology_dialectic: 0.3
+      abstraction_doctrine: 0.95
+      existential: 0.3
+      canon_norm: 0.5
+      sacral_symbolic: 0.6
+      architecture: 0.15
+      strategy: 0.2
+      procedural: 0.1
+      psycho_realism: 0.2
+      metaphor_synthesis: 0.3
+      diplomacy_nuance: 0.2
+
+  fa:
+    name: Persian
+    role: "Metaphor, aesthetic synthesis, intuition"
+    profile:
+      logic_definition: 0.15
+      etymology_dialectic: 0.3
+      abstraction_doctrine: 0.3
+      existential: 0.5
+      canon_norm: 0.1
+      sacral_symbolic: 0.5
+      architecture: 0.05
+      strategy: 0.2
+      procedural: 0.05
+      psycho_realism: 0.4
+      metaphor_synthesis: 0.95
+      diplomacy_nuance: 0.3
+
+  ru:
+    name: Russian
+    role: "Psycho-realism, power, conscience"
+    profile:
+      logic_definition: 0.2
+      etymology_dialectic: 0.2
+      abstraction_doctrine: 0.2
+      existential: 0.5
+      canon_norm: 0.2
+      sacral_symbolic: 0.15
+      architecture: 0.3
+      strategy: 0.4
+      procedural: 0.3
+      psycho_realism: 0.95
+      metaphor_synthesis: 0.3
+      diplomacy_nuance: 0.2
+
+  hy:
+    name: Armenian
+    role: "Existential continuity, survival, identity"
+    profile:
+      logic_definition: 0.15
+      etymology_dialectic: 0.2
+      abstraction_doctrine: 0.15
+      existential: 0.95
+      canon_norm: 0.15
+      sacral_symbolic: 0.5
+      architecture: 0.05
+      strategy: 0.3
+      procedural: 0.05
+      psycho_realism: 0.5
+      metaphor_synthesis: 0.4
+      diplomacy_nuance: 0.1
+
+  arc:
+    name: Aramaic
+    role: "Sacral substrate, pre-modern ethical framing"
+    profile:
+      logic_definition: 0.2
+      etymology_dialectic: 0.2
+      abstraction_doctrine: 0.4
+      existential: 0.5
+      canon_norm: 0.3
+      sacral_symbolic: 0.95
+      architecture: 0.05
+      strategy: 0.1
+      procedural: 0.05
+      psycho_realism: 0.2
+      metaphor_synthesis: 0.5
+      diplomacy_nuance: 0.1
 
 defaults:
-  lang: en
-  mode: procedural
+  fallback_lang: en
+  fallback_mode: procedural
