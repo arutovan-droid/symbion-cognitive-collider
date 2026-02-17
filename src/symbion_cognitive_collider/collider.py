@@ -266,7 +266,7 @@ def _dynamic_collision(
       3) optional energy gate: energy_score > 0.4 (or no life_vector)
     """
     if not ranked or len(ranked) < 2:
-        return CollisionPlan(enabled=False)
+        return CollisionPlan(enabled=False, arbiter="none")
 
     first_lang, first_score = ranked[0]
 
@@ -290,13 +290,13 @@ def _dynamic_collision(
             telemetry['collision_pole_b_meta'] = {'select_mode': 'runner_up'}
 
     if float(first_score) <= 0.0:
-        return CollisionPlan(enabled=False)
+        return CollisionPlan(enabled=False, arbiter="none")
 
     proximity = float(second_score) / float(first_score)
 
     band = _resonance_band(float(resonance_gap)) if resonance_gap is not None else "none"
     if band == "ambiguous":
-        return CollisionPlan(enabled=False)
+        return CollisionPlan(enabled=False, arbiter="none")
 
     proximity_threshold = 0.75
     if band == "confident":
@@ -316,7 +316,7 @@ def _dynamic_collision(
     )
 
     if not enable:
-        return CollisionPlan(enabled=False)
+        return CollisionPlan(enabled=False, arbiter="none")
 
     return CollisionPlan(
         enabled=True,
