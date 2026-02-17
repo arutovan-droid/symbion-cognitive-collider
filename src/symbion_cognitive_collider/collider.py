@@ -148,8 +148,9 @@ def _choose_pole_b_diverse(
     """
     if not ranked or len(ranked) < 2:
         return None, 0.0, {"select_mode": "none"}
-
     keys = list((topic_vector or {}).keys())
+    if not keys:
+        keys = list(prof_a.keys())
     if not keys:
         # if topic_vector missing, fall back to score-only
         l, s = ranked[1]
@@ -159,6 +160,28 @@ def _choose_pole_b_diverse(
     first_lang, first_score = ranked[0]
     first_score = float(first_score) if first_score is not None else 0.0
     prof_a = (langs.get(str(first_lang), {}) or {}).get("profile") or {}
+    # tilt across top2 active topics (helps pick a complementary pole_b on dense themes)
+    _active = list((topic_vector or {}).keys()) if topic_vector else []
+    _tilt_keys = _active[:2] if len(_active) >= 2 else []
+    def _tilt(profile: dict) -> float:
+        try:
+            if len(_tilt_keys) == 2:
+                a = float(profile.get(_tilt_keys[0], 0.0))
+                b = float(profile.get(_tilt_keys[1], 0.0))
+                return a - b
+        except Exception:
+            pass
+        return 0.0
+    _tilt_a = _tilt(prof_a)
+    # baseline diversity against runner-up (dense-topic bonus)
+    _baseline_div = None
+    try:
+        _ru_lang, _ru_score = ranked[1]
+        _ru_prof = (langs.get(str(_ru_lang), {}) or {}).get('profile') or {}
+        _k = list((topic_vector or {}).keys()) or list(prof_a.keys())
+        _baseline_div = max(0.0, 1.0 - float(_cosine(prof_a, _ru_prof, _k)))
+    except Exception:
+        _baseline_div = None
 
     best = None
     best_meta = None
@@ -175,14 +198,40 @@ def _choose_pole_b_diverse(
         prof_b = (langs.get(str(lang), {}) or {}).get("profile") or {}
         cos = _cosine(prof_a, prof_b, keys)
         diversity = max(0.0, 1.0 - float(cos))
+        # tilt distance (only meaningful if we have 2 active topics)
+        tilt_b = _tilt(prof_b)
+        tilt_dist = abs(float(tilt_b) - float(_tilt_a)) if _tilt_keys else 0.0
+        # contribution distance on active topics (strong complement signal)
+        dist = 0.0
+        try:
+            for k in keys:
+                w = float((topic_vector or {}).get(k, 0.0)) if topic_vector else 0.0
+                if w <= 0.0:
+                    continue
+                ca = float(prof_a.get(k, 0.0)) * w
+                cb = float(prof_b.get(k, 0.0)) * w
+                dist += abs(ca - cb)
+        except Exception:
+            dist = 0.0
+        dist_norm = min(1.0, float(dist))
 
         # depth-sensitive weighting
         if float(depth) >= 0.6:
-            utility = 0.55 * strength + 0.45 * diversity
+            utility = 0.55 * strength + 0.25 * diversity + 0.20 * dist_norm
         else:
             utility = 0.80 * strength + 0.20 * diversity
 
+        # dense-topic diversity bonus: prefer distinctly different pole_b when depth is high
+        try:
+            if float(depth) >= 0.6 and _baseline_div is not None and diversity >= float(_baseline_div) + 0.08:
+                utility += 0.03
+        except Exception:
+            pass
+
         meta = {
+            "tilt": float(tilt_b) if _tilt_keys else None,
+            "tilt_dist": float(tilt_dist) if _tilt_keys else None,
+            "dist": float(dist_norm),
             "select_mode": "diverse",
             "strength": float(strength),
             "diversity": float(diversity),
@@ -384,6 +433,12 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
                     if meta.get("select_mode") == "diverse":
                         lop.trace["collision_pole_b_strength"] = float(meta.get("strength", 0.0))
                         lop.trace["collision_pole_b_diversity"] = float(meta.get("diversity", 0.0))
+                        lop.trace["collision_pole_b_tilt"] = meta.get("tilt")
+                        lop.trace["collision_pole_b_tilt_dist"] = meta.get("tilt_dist")
+                        lop.trace["collision_pole_b_dist"] = float(meta.get("dist", 0.0))
+                        parts.append(f"pole_b_dist={float(meta.get('dist',0.0)):.3f}")
+                        if meta.get('tilt_dist') is not None:
+                            parts.append(f"pole_b_tilt_dist={float(meta.get('tilt_dist',0.0)):.3f}")
                         parts.append(f"pole_b_strength={float(meta.get('strength',0.0)):.3f}")
                         parts.append(f"pole_b_diversity={float(meta.get('diversity',0.0)):.3f}")
             except Exception:
