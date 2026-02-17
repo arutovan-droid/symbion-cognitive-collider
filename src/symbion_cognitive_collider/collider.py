@@ -116,11 +116,99 @@ def _derive_mode(topic_vector: Dict[str, float], lang_code: str, apostles: dict)
     return default_modes.get(top_topic, "procedural")
 
 
+
+def _cosine(a: dict, b: dict, keys) -> float:
+    # a, b: dict[str,float]; keys: iterable of topics to align on
+    import math
+    dot = 0.0
+    na = 0.0
+    nb = 0.0
+    for k in keys:
+        av = float(a.get(k, 0.0)) if a else 0.0
+        bv = float(b.get(k, 0.0)) if b else 0.0
+        dot += av * bv
+        na += av * av
+        nb += bv * bv
+    if na <= 0.0 or nb <= 0.0:
+        return 0.0
+    return dot / (math.sqrt(na) * math.sqrt(nb))
+
+
+def _choose_pole_b_diverse(
+    ranked,
+    depth: float,
+    apostles: dict,
+    topic_vector: dict,
+    strength_floor: float = 0.65,
+):
+    """
+    Choose a complementary pole_b among top candidates.
+    Returns: (lang, score, meta_dict)
+    meta_dict contains: select_mode, strength, diversity, utility
+    """
+    if not ranked or len(ranked) < 2:
+        return None, 0.0, {"select_mode": "none"}
+
+    keys = list((topic_vector or {}).keys())
+    if not keys:
+        # if topic_vector missing, fall back to score-only
+        l, s = ranked[1]
+        return l, float(s), {"select_mode": "runner_up"}
+
+    langs = (apostles or {}).get("languages", {}) if apostles else {}
+    first_lang, first_score = ranked[0]
+    first_score = float(first_score) if first_score is not None else 0.0
+    prof_a = (langs.get(str(first_lang), {}) or {}).get("profile") or {}
+
+    best = None
+    best_meta = None
+
+    # candidates from ranked[1:4]
+    for lang, score in ranked[1:4]:
+        sc = float(score)
+        if first_score <= 0.0:
+            continue
+        strength = sc / first_score
+        if strength < strength_floor:
+            continue
+
+        prof_b = (langs.get(str(lang), {}) or {}).get("profile") or {}
+        cos = _cosine(prof_a, prof_b, keys)
+        diversity = max(0.0, 1.0 - float(cos))
+
+        # depth-sensitive weighting
+        if float(depth) >= 0.6:
+            utility = 0.55 * strength + 0.45 * diversity
+        else:
+            utility = 0.80 * strength + 0.20 * diversity
+
+        meta = {
+            "select_mode": "diverse",
+            "strength": float(strength),
+            "diversity": float(diversity),
+            "utility": float(utility),
+            "candidate": str(lang),
+        }
+
+        if best is None or utility > best_meta["utility"]:
+            best = (str(lang), sc)
+            best_meta = meta
+
+    if best is None:
+        # fallback to runner-up
+        l, sc = ranked[1]
+        return str(l), float(sc), {"select_mode": "runner_up"}
+
+    return best[0], float(best[1]), best_meta
+
+
 def _dynamic_collision(
     ranked: List[Tuple[str, float]],
     depth: float,
     life_vector: Optional[dict],
     resonance_gap: float = 0.0,
+    topic_vector: Optional[dict] = None,
+    telemetry: Optional[dict] = None,
 ) -> CollisionPlan:
     """
     Collision activates when:
@@ -132,17 +220,25 @@ def _dynamic_collision(
         return CollisionPlan(enabled=False)
 
     first_lang, first_score = ranked[0]
+
     second_lang, second_score = ranked[1]
 
-    # Prefer a more complementary pole_b from top3 if it is not too weak.
-    # This helps avoid always picking the immediate runner-up when a strong 3rd candidate exists.
-    if len(ranked) >= 3:
-        third_lang, third_score = ranked[2]
-        try:
-            if float(third_score) / float(first_score) > 0.65:
-                second_lang, second_score = third_lang, third_score
-        except Exception:
-            pass
+    # Depth-sensitive, profile-diverse pole_b choice (telemetry-only; keeps collision gates intact)
+    try:
+        chosen_lang, chosen_score, meta = _choose_pole_b_diverse(
+            ranked,
+            depth=float(depth),
+            apostles=_APOSTLES,
+            topic_vector=topic_vector or {},
+        )
+        if chosen_lang:
+            second_lang, second_score = chosen_lang, chosen_score
+        # stash meta on function attribute-like local for route_language to capture (best-effort)
+        if telemetry is not None and isinstance(telemetry, dict):
+            telemetry['collision_pole_b_meta'] = meta
+    except Exception:
+        if telemetry is not None and isinstance(telemetry, dict):
+            telemetry['collision_pole_b_meta'] = {'select_mode': 'runner_up'}
 
     if float(first_score) <= 0.0:
         return CollisionPlan(enabled=False)
@@ -240,7 +336,8 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
     mode = _derive_mode(lop.topic_vector, think_lang, _APOSTLES)
 
     # Dynamic collision
-    collision = _dynamic_collision(ranked, lop.depth, life_vector, resonance_gap)
+    _collision_telemetry = {}
+    collision = _dynamic_collision(ranked, lop.depth, life_vector, resonance_gap, lop.topic_vector, _collision_telemetry)
 
     # Explain collision decision in routing_trace (telemetry only)
     try:
@@ -279,6 +376,18 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
             reason = f"disabled: band=ambiguous gap={gap:.3f}"
         else:
             parts = [f"band={band}", f"gap={gap:.3f}"]
+            # pole_b selection meta (if available)
+            try:
+                meta = (_collision_telemetry.get('collision_pole_b_meta') if isinstance(_collision_telemetry, dict) else {}) or {}
+                if isinstance(meta, dict):
+                    lop.trace["collision_pole_b_select"] = meta.get("select_mode")
+                    if meta.get("select_mode") == "diverse":
+                        lop.trace["collision_pole_b_strength"] = float(meta.get("strength", 0.0))
+                        lop.trace["collision_pole_b_diversity"] = float(meta.get("diversity", 0.0))
+                        parts.append(f"pole_b_strength={float(meta.get('strength',0.0)):.3f}")
+                        parts.append(f"pole_b_diversity={float(meta.get('diversity',0.0)):.3f}")
+            except Exception:
+                pass
             if proximity is not None:
                 parts.append(f"proximity={proximity:.3f}>{proximity_threshold:.2f}" if proximity > proximity_threshold else f"proximity={proximity:.3f}<={proximity_threshold:.2f}")
             parts.append(f"depth={float(lop.depth):.3f}>0.50" if float(lop.depth) > 0.5 else f"depth={float(lop.depth):.3f}<=0.50")
