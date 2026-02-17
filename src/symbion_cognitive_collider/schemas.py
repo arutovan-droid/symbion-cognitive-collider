@@ -21,5 +21,12 @@ class CognitionLanguageVector(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     glossary: Dict[str, str] = Field(default_factory=dict)
     collision: CollisionPlan = Field(default_factory=CollisionPlan)
+
+    # Optional enrichment fields (added by collider; safe defaults)
+    resonance_score: Optional[float] = None
+    resonance_gap: Optional[float] = None
+    depth: Optional[float] = None
+    top_candidates: Optional[list[dict]] = None
+
     routing_trace: Dict = Field(default_factory=dict)
     raw_input_hash: str
