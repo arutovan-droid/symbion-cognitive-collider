@@ -352,6 +352,13 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
     # Vector LOP
     lop = classify_topic(raw_input, dialog_context)
 
+
+    # telemetry versioning
+    try:
+        lop.trace["router_version"] = "rv02"
+    except Exception:
+        pass
+
     # Resonance selection
     ranked = _resonate(lop.topic_vector, lop.depth, _APOSTLES)
     if ranked:
