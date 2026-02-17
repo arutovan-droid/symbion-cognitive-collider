@@ -134,6 +134,16 @@ def _dynamic_collision(
     first_lang, first_score = ranked[0]
     second_lang, second_score = ranked[1]
 
+    # Prefer a more complementary pole_b from top3 if it is not too weak.
+    # This helps avoid always picking the immediate runner-up when a strong 3rd candidate exists.
+    if len(ranked) >= 3:
+        third_lang, third_score = ranked[2]
+        try:
+            if float(third_score) / float(first_score) > 0.65:
+                second_lang, second_score = third_lang, third_score
+        except Exception:
+            pass
+
     if float(first_score) <= 0.0:
         return CollisionPlan(enabled=False)
 
