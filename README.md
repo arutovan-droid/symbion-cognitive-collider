@@ -360,7 +360,65 @@ PSL integration: verification/constraints consume cog_lang
 Librarium metadata: store/retrieve with ontological compatibility
 
 Apostles tuning: config-driven weights + tests
+# symbion-cognitive-collider
 
+Minimal MVP router that:
+- classifies topic + depth (LOP)
+- selects think language by resonance profiles (apostles_map.yaml)
+- optionally enables a "collision" (two-pole plan) gated by resonance band + depth + energy
+- emits telemetry in `routing_trace` (router_version, band/confidence, collision_reason, etc.)
+
+## Requirements
+- Python 3.11+
+- Windows PowerShell (or any shell)
+
+## Install (dev)
+From repo root:
+
+```powershell
+python -m pip install -e .
+CLI
+Route one prompt (pretty)
+python -m symbion_cognitive_collider route "Дай кратко: что такое причинность?" --energy 0.95
+Route one prompt (JSON)
+python -m symbion_cognitive_collider route "Дай кратко: что такое причинность?" --energy 0.95 --json
+Run in browser (local)
+We ship a tiny FastAPI UI in tools/web_fastapi.py.
+
+1) Start server
+Important: if port 8000 is busy, pick another port (e.g. 8001).
+
+python -m uvicorn tools.web_fastapi:app --host 127.0.0.1 --port 8000 --log-level info
+Open in browser:
+
+http://127.0.0.1:8000/
+
+2) Call API (PowerShell)
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/route `
+  -ContentType "application/json" `
+  -Body '{"text":"Дай кратко: что такое причинность?","energy":0.9}'
+3) Call API (Python stdlib, no requests)
+python -c "import json, urllib.request; data=json.dumps({'text':'Дай кратко: что такое причинность?','energy':0.9}).encode('utf-8'); req=urllib.request.Request('http://127.0.0.1:8000/route', data=data, headers={'Content-Type':'application/json'}); print(urllib.request.urlopen(req).read().decode('utf-8'))"
+Troubleshooting
+Port already in use (Windows error 10048)
+Find PID and kill it:
+
+netstat -ano | findstr ":8000"
+taskkill /PID <PID> /F
+Or run on another port:
+
+python -m uvicorn tools.web_fastapi:app --host 127.0.0.1 --port 8001 --log-level info
+Empty input returns 400
+Server returns:
+
+{"detail":"empty_input"}
+UI also blocks empty/whitespace input client-side.
+
+Smoke tests
+Run the local router smoke test:
+
+python .\tools\smoke_router.py
 License
 See license file.
 
