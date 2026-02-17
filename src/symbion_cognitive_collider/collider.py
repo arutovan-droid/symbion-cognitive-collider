@@ -242,6 +242,65 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
     # Dynamic collision
     collision = _dynamic_collision(ranked, lop.depth, life_vector, resonance_gap)
 
+    # Explain collision decision in routing_trace (telemetry only)
+    try:
+        band = lop.trace.get("resonance_band", "none")
+        gap = float(resonance_gap) if resonance_gap is not None else 0.0
+
+        # Recompute key gates for explainability (keep consistent with _dynamic_collision)
+        proximity = None
+        first_score = None
+        energy = 0.0
+
+        if ranked and len(ranked) >= 2:
+            first_score = float(ranked[0][1])
+            second_score = float(ranked[1][1])
+            if first_score > 0.0:
+                proximity = float(second_score) / float(first_score)
+
+        if life_vector is not None:
+            try:
+                energy = float(life_vector.get("energy_score", 0.0))
+            except Exception:
+                energy = 0.0
+
+        # Thresholds mirrored from _dynamic_collision
+        proximity_threshold = 0.75
+        if band == "confident":
+            proximity_threshold = 0.70
+
+        enabled = getattr(collision, "enabled", False)
+
+        if not ranked or len(ranked) < 2:
+            reason = "disabled: ranked<2"
+        elif first_score is not None and first_score <= 0.0:
+            reason = "disabled: first_score<=0"
+        elif band == "ambiguous":
+            reason = f"disabled: band=ambiguous gap={gap:.3f}"
+        else:
+            parts = [f"band={band}", f"gap={gap:.3f}"]
+            if proximity is not None:
+                parts.append(f"proximity={proximity:.3f}>{proximity_threshold:.2f}" if proximity > proximity_threshold else f"proximity={proximity:.3f}<={proximity_threshold:.2f}")
+            parts.append(f"depth={float(lop.depth):.3f}>0.50" if float(lop.depth) > 0.5 else f"depth={float(lop.depth):.3f}<=0.50")
+            if life_vector is None:
+                parts.append("energy=none")
+            else:
+                parts.append(f"energy={energy:.3f}>0.40" if energy > 0.4 else f"energy={energy:.3f}<=0.40")
+
+            # Detect whether pole_b came from top3 (heuristic)
+            try:
+                pole_b = getattr(getattr(collision, "pole_b", None), "lang", None)
+                if pole_b and len(ranked) >= 3 and str(pole_b) == str(ranked[2][0]):
+                    parts.append("pole_b=top3")
+            except Exception:
+                pass
+
+            reason = ("enabled: " if enabled else "disabled: ") + " ".join(parts)
+
+        lop.trace["collision_reason"] = reason
+    except Exception:
+        pass
+
     # Keep external contract unchanged (we only add optional fields if schemas.py supports them)
     payload = dict(
         prompt_language=prompt_lang,
