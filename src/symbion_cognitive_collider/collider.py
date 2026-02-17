@@ -116,7 +116,12 @@ def _derive_mode(topic_vector: Dict[str, float], lang_code: str, apostles: dict)
     return default_modes.get(top_topic, "procedural")
 
 
-def _dynamic_collision(ranked: List[Tuple[str, float]], depth: float, life_vector: Optional[dict]) -> CollisionPlan:
+def _dynamic_collision(
+    ranked: List[Tuple[str, float]],
+    depth: float,
+    life_vector: Optional[dict],
+    resonance_gap: float = 0.0,
+) -> CollisionPlan:
     """
     Collision activates when:
       1) Top2 close: ratio > 0.75
@@ -134,6 +139,14 @@ def _dynamic_collision(ranked: List[Tuple[str, float]], depth: float, life_vecto
 
     proximity = float(second_score) / float(first_score)
 
+    band = _resonance_band(float(resonance_gap)) if resonance_gap is not None else "none"
+    if band == "ambiguous":
+        return CollisionPlan(enabled=False)
+
+    proximity_threshold = 0.75
+    if band == "confident":
+        proximity_threshold = 0.70
+
     energy = 0.0
     if life_vector is not None:
         try:
@@ -142,7 +155,7 @@ def _dynamic_collision(ranked: List[Tuple[str, float]], depth: float, life_vecto
             energy = 0.0
 
     enable = (
-        proximity > 0.75
+        proximity > float(proximity_threshold)
         and float(depth) > 0.5
         and (energy > 0.4 or life_vector is None)
     )
@@ -217,7 +230,7 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
     mode = _derive_mode(lop.topic_vector, think_lang, _APOSTLES)
 
     # Dynamic collision
-    collision = _dynamic_collision(ranked, lop.depth, life_vector)
+    collision = _dynamic_collision(ranked, lop.depth, life_vector, resonance_gap)
 
     # Keep external contract unchanged (we only add optional fields if schemas.py supports them)
     payload = dict(
