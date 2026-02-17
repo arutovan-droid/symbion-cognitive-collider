@@ -37,3 +37,9 @@ Key fields:
 - `resonance_band`: `ambiguous | mixed | confident | none`
 - `resonance_confidence`: float [0..1]
 - `collision_reason`: one-line decision explanation
+
+## Dense pairs (calibration)
+
+Print the strongest complementary language pairs per topic (dense depth heuristic):
+
+    python .\tools\list_dense_pairs.py
