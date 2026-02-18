@@ -8,7 +8,28 @@ import re
 _RE_NAREKATSI = re.compile(r"(нарекац|нарек|айбубен|маштоц|песнопен|скорбн|обвин|прокурор|судья|бог|грех|narekatsi)", re.I)
 _RE_CRISIS = re.compile(r"(кризис|бифуркац|неопредел|риск|сценар|горизонт|стратег|решен|выбор|危机|wēijī)", re.I)
 
+# Арамейский (сакральный субстрат)
+# Истина (три типа)
+_RE_TRUTH = re.compile(r"(истин|правд|truth|veritas|aletheia|emet|хакикат)", re.I)
+
+_RE_ARC = re.compile(r"(свет.*не отбрасывает тени|священн|божествен|излучени|сияни|glory|radiance|divine light|shekinah|сакральн|храм|жертв|проро|ангел|бог|дух)", re.I)
+
 def _add_domain_signals(text: str, raw_scores: dict, signals: list) -> None:
+    # Три типа истины
+    if '_RE_TRUTH' in globals() and _RE_TRUTH.search(text):
+        raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 0.8   # arc
+        raw_scores["logic_definition"] = raw_scores.get("logic_definition", 0.0) + 0.8 # sa
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 0.8           # hy
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.0
+        signals.append("domain:truth_three_types")
+        print("DEBUG: Truth matched! (3 types)")
+    # Арамейский сигнал
+    if '_RE_ARC' in globals() and _RE_ARC.search(text):
+        raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 2.0
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 1.5
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 2.0
+        signals.append("domain:arc_sacral")
+        print("DEBUG: Aramaic matched!")
     """Add domain-specific topic boosts."""
     if not text:
         return
@@ -19,7 +40,7 @@ def _add_domain_signals(text: str, raw_scores: dict, signals: list) -> None:
         raw_scores["existential"] = raw_scores.get("existential", 0.0) + 1.5
         raw_scores["psycho_realism"] = raw_scores.get("psycho_realism", 0.0) + 1.0
         raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 0.8
-        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.2
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 2.0
         signals.append("domain:narekatsi")
     
     if _RE_CRISIS.search(text):
@@ -36,7 +57,7 @@ def _add_domain_signals(text: str, raw_scores: dict, signals: list) -> None:
         raw_scores["existential"] = raw_scores.get("existential", 0.0) + 1.5
         raw_scores["psycho_realism"] = raw_scores.get("psycho_realism", 0.0) + 1.0
         raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 0.8
-        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.2
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 2.0
         signals.append("domain:narekatsi")
     
     if _RE_CRISIS.search(text):
@@ -337,7 +358,12 @@ def classify_topic(raw_input: str, dialog_context: Dict[str, Any]) -> LOPResult:
 
     norm = _normalize_by_max(raw_scores)
 
+    # Добавляем depth_boost из сигналов
+    depth_boost_val = raw_scores.get("depth_boost", 0.0)
     depth_info = _estimate_depth(text, raw_scores)
+    if depth_boost_val > 0:
+        depth_info["depth"] = min(1.0, depth_info["depth"] + depth_boost_val * 0.3)
+        depth_info["reasons"].append(f"domain_depth_boost:+{depth_boost_val*0.3:.1f}")
 
     trace = {
         "raw_scores": raw_scores,
