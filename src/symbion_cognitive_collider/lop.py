@@ -2,6 +2,51 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
+import re
+
+# === MVP domain signals (added manually) ===
+_RE_NAREKATSI = re.compile(r"(нарекац|нарек|айбубен|маштоц|песнопен|скорбн|обвин|прокурор|судья|бог|грех|narekatsi)", re.I)
+_RE_CRISIS = re.compile(r"(кризис|бифуркац|неопредел|риск|сценар|горизонт|стратег|решен|выбор|危机|wēijī)", re.I)
+
+def _add_domain_signals(text: str, raw_scores: dict, signals: list) -> None:
+    """Add domain-specific topic boosts."""
+    if not text:
+        return
+    print("DEBUG: _add_domain_signals called with text:", text[:50])
+    
+    if _RE_NAREKATSI.search(text):
+        print("DEBUG: Narekatsi matched!")
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 1.5
+        raw_scores["psycho_realism"] = raw_scores.get("psycho_realism", 0.0) + 1.0
+        raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 0.8
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.2
+        signals.append("domain:narekatsi")
+    
+    if _RE_CRISIS.search(text):
+        print("DEBUG: Crisis matched!")
+        raw_scores["strategy"] = raw_scores.get("strategy", 0.0) + 1.5
+        raw_scores["abstraction_doctrine"] = raw_scores.get("abstraction_doctrine", 0.0) + 0.8
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 0.8
+        signals.append("domain:crisis")
+    
+    return
+    
+    if _RE_NAREKATSI.search(text):
+        print("DEBUG: Narekatsi matched!")
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 1.5
+        raw_scores["psycho_realism"] = raw_scores.get("psycho_realism", 0.0) + 1.0
+        raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 0.8
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.2
+        signals.append("domain:narekatsi")
+    
+    if _RE_CRISIS.search(text):
+        print("DEBUG: Crisis matched!")
+        raw_scores["strategy"] = raw_scores.get("strategy", 0.0) + 1.5
+        raw_scores["abstraction_doctrine"] = raw_scores.get("abstraction_doctrine", 0.0) + 0.8
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 0.8
+        signals.append("domain:crisis")
+# ===========================================
+
 
 
 # Topic space (keep in sync with apostles_map.yaml profiles)
@@ -267,6 +312,11 @@ def classify_topic(raw_input: str, dialog_context: Dict[str, Any]) -> LOPResult:
 
     # topic momentum from last 3 messages
     raw_scores = _accumulate_context(dict(current_scores), history, decay=0.3)
+
+    signals = []
+    # Add domain-specific signals (Narekatsi, crisis)
+    if text:  # call even if raw_scores empty
+        _add_domain_signals(text, raw_scores, signals)
 
     if not raw_scores:
         # fallback
