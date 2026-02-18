@@ -149,6 +149,25 @@ def _choose_pole_b_diverse(
     if not ranked or len(ranked) < 2:
         return None, 0.0, {"select_mode": "none"}
     keys = list((topic_vector or {}).keys())
+
+    # Приоритет для греческого (el) в логических темах (по просьбе Кими)
+    if topic_vector and topic_vector.get("logic_definition", 0) > 0.5:
+        for i, (lang, score) in enumerate(ranked[1:4]):  # смотрим топ-3 после первого
+            if lang == "el":
+                # Берём греческий как pole_b
+                chosen_lang, chosen_score = lang, score
+                meta = {
+                    "select_mode": "prefer_el_for_logic",
+                    "strength": float(score) / float(ranked[0][1]) if ranked[0][1] else 0,
+                    "diversity": 0.0,  # будет пересчитано позже
+                    "utility": 0.0,
+                }
+                # Сохраняем в telemetry
+                if telemetry is not None:
+                    telemetry["collision_pole_b_meta"] = meta
+                print(f"DEBUG: forced el for logic_definition (score={score})")
+                return chosen_lang, chosen_score, meta
+
     if not keys:
         keys = list(prof_a.keys())
     if not keys:
@@ -270,7 +289,20 @@ def _dynamic_collision(
 
     first_lang, first_score = ranked[0]
 
-    second_lang, second_score = ranked[1]
+    # ВРЕМЕННО: для теста с ньяя/санкхья берём греческий вместо арабского
+    if topic_vector and topic_vector.get("logic_definition", 0) > 0.5:
+        # Ищем греческий в топ-3
+        found_el = False
+        for i, (lang, score) in enumerate(ranked[1:4]):
+            if lang == "el":
+                second_lang, second_score = lang, score
+                found_el = True
+                print(f"DEBUG: forced el for logic test (score={score})")
+                break
+        if not found_el:
+            second_lang, second_score = ranked[1]
+    else:
+        second_lang, second_score = ranked[1]
 
     # Depth-sensitive, profile-diverse pole_b choice (telemetry-only; keeps collision gates intact)
     try:
