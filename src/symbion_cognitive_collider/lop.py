@@ -8,6 +8,44 @@ import re
 _RE_NAREKATSI = re.compile(r"(нарекац|нарек|айбубен|маштоц|песнопен|скорбн|обвин|прокурор|судья|бог|грех|narekatsi)", re.I)
 _RE_CRISIS = re.compile(r"(кризис|бифуркац|неопредел|риск|сценар|горизонт|стратег|решен|выбор|危机|wēijī)", re.I)
 
+# Armenian / HY cognitive processor signals.
+# These are not cultural decorations; they map HY seed mechanics into existing topic space.
+_RE_HY_MEMORY_WITNESS = re.compile(
+    r"(памят|примес|свидетельств|шум|молчани|утрат|след|исповед|страдани|бол[ьи]|"
+    r"memory|witness|testimony|noise|silence|loss|trace)",
+    re.I,
+)
+
+_RE_HY_DISTRIBUTED_INVARIANT = re.compile(
+    r"(центр.*разруш|разруш.*центр|узел|инвариант|оскол|фрактал|хачкар|минимальн.*узел|"
+    r"distributed invariant|node|invariant|fragment|khachkar|fractal)",
+    re.I,
+)
+
+_RE_HY_CODE_INFRASTRUCTURE = re.compile(
+    r"(язык.*инфраструктур|инфраструктур.*язык|алфавит|айбубен|букв|маштоц|код.*территор|"
+    r"синтаксис|несущ.*конструкц|language.*infrastructure|alphabet|script|mashtots|code.*territory)",
+    re.I,
+)
+
+_RE_HY_STONE_GEOLOGY = re.compile(
+    r"(камень|туф|гора|арарат|геолог|разлом|петрифик|окамен|монастыр|гегард|татев|"
+    r"stone|tuff|mountain|ararat|geology|fracture|petrification)",
+    re.I,
+)
+
+_RE_HY_WORD_SCALPEL = re.compile(
+    r"(скальпел|патолог|диагноз|точно назв|названн.*патолог|слово.*плотност|"
+    r"scalpel|pathology|diagnosis|precise articulation)",
+    re.I,
+)
+
+_RE_HY_DUDUK_BREATH = re.compile(
+    r"(дудук|дыхани|тембр|акустическ.*лини|тональн.*свидетельств|"
+    r"duduk|breath|timbre|tonal witness)",
+    re.I,
+)
+
 # Арамейский (сакральный субстрат)
 # Истина (три типа)
 _RE_TRUTH = re.compile(r"(истин|правд|truth|veritas|aletheia|emet|хакикат)", re.I)
@@ -34,6 +72,50 @@ def _add_domain_signals(text: str, raw_scores: dict, signals: list) -> None:
     if not text:
         return
     print("DEBUG: _add_domain_signals called with text:", text[:50])
+
+    # HY processor: atomic analysis, witness, invariant, code-as-territory.
+    # Map to existing topics only; do not create new topic names here.
+    if _RE_HY_MEMORY_WITNESS.search(text):
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 1.6
+        raw_scores["psycho_realism"] = raw_scores.get("psycho_realism", 0.0) + 0.8
+        raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 0.4
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.2
+        signals.append("domain:hy_memory_witness")
+
+    if _RE_HY_DISTRIBUTED_INVARIANT.search(text):
+        raw_scores["architecture"] = raw_scores.get("architecture", 0.0) + 1.5
+        raw_scores["logic_definition"] = raw_scores.get("logic_definition", 0.0) + 1.2
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 0.8
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.2
+        signals.append("domain:hy_distributed_invariant")
+
+    if _RE_HY_CODE_INFRASTRUCTURE.search(text):
+        raw_scores["architecture"] = raw_scores.get("architecture", 0.0) + 1.4
+        raw_scores["logic_definition"] = raw_scores.get("logic_definition", 0.0) + 1.2
+        raw_scores["etymology_dialectic"] = raw_scores.get("etymology_dialectic", 0.0) + 0.6
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.0
+        signals.append("domain:hy_code_infrastructure")
+
+    if _RE_HY_STONE_GEOLOGY.search(text):
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 1.0
+        raw_scores["architecture"] = raw_scores.get("architecture", 0.0) + 0.9
+        raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 0.5
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.0
+        signals.append("domain:hy_stone_geology")
+
+    if _RE_HY_WORD_SCALPEL.search(text):
+        raw_scores["psycho_realism"] = raw_scores.get("psycho_realism", 0.0) + 1.3
+        raw_scores["logic_definition"] = raw_scores.get("logic_definition", 0.0) + 0.9
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 0.7
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.0
+        signals.append("domain:hy_word_scalpel")
+
+    if _RE_HY_DUDUK_BREATH.search(text):
+        raw_scores["metaphor_synthesis"] = raw_scores.get("metaphor_synthesis", 0.0) + 1.0
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 0.8
+        raw_scores["psycho_realism"] = raw_scores.get("psycho_realism", 0.0) + 0.5
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 0.8
+        signals.append("domain:hy_duduk_breath")
     
     if _RE_NAREKATSI.search(text):
         print("DEBUG: Narekatsi matched!")
@@ -366,6 +448,7 @@ def classify_topic(raw_input: str, dialog_context: Dict[str, Any]) -> LOPResult:
         depth_info["reasons"].append(f"domain_depth_boost:+{depth_boost_val*0.3:.1f}")
 
     trace = {
+        "signals": signals,
         "raw_scores": raw_scores,
         "normalized": norm,
         "dominant_topic": dominant_topic,
