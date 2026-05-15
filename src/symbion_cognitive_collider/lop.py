@@ -52,6 +52,10 @@ _RE_TRUTH = re.compile(r"(истин|правд|truth|veritas|aletheia|emet|ха
 
 _RE_ARC = re.compile(r"(свет.*не отбрасывает тени|священн|божествен|излучени|сияни|glory|radiance|divine light|shekinah|сакральн|храм|жертв|проро|ангел|бог|дух)", re.I)
 
+_RE_SA_OBSERVER_ROOT = re.compile(r"(наблюда[ею]|наблюдател|мысл[ьи]|кто тот я|кто я|сознани|восприяти|реальност|иллюзи|identity|consciousness|perception|observer|observed|self|reality|illusion|root cause|first cause|uncaused|origin|unmanifest)", re.I)
+
+_RE_ZH_VOID_FIELD = re.compile(r"(пустое место|пустота|пустой|зазор|отсутстви|поле|натяжени|без центра|центр отсутствует|распределени[ея] напряжени|локальные узлы|выравниваются по полю|void|emptiness|empty space|field|centerless)", re.I)
+
 def _add_domain_signals(text: str, raw_scores: dict, signals: list) -> None:
     # Три типа истины
     if '_RE_TRUTH' in globals() and _RE_TRUTH.search(text):
@@ -71,7 +75,215 @@ def _add_domain_signals(text: str, raw_scores: dict, signals: list) -> None:
     """Add domain-specific topic boosts."""
     if not text:
         return
+    _t = str(text or "").lower()
     print("DEBUG: _add_domain_signals called with text:", text[:50])
+    # Food / embodied memory / taste / cultural uptake signal.
+    # Food questions are rarely pure procedure unless explicit recipe/process markers dominate.
+    _food_terms = [
+        "grandmother", "grandmother's food", "chef", "food", "dish",
+        "cook", "cooking", "taste", "flavor", "salt", "soup",
+        "national dish", "speaks", "comfort food",
+        "бабушкин", "бабушка", "еда", "блюдо", "готовить",
+        "готовка", "вкус", "соль", "суп", "национальное блюдо",
+        "говорила", "говорит",
+    ]
+
+    if any(x in _t for x in _food_terms):
+        raw_scores["psycho_realism"] = float(raw_scores.get("psycho_realism", 0.0)) + 1.0
+        raw_scores["metaphor_synthesis"] = float(raw_scores.get("metaphor_synthesis", 0.0)) + 0.8
+        raw_scores["strategy"] = float(raw_scores.get("strategy", 0.0)) + 0.55
+        raw_scores["diplomacy_nuance"] = float(raw_scores.get("diplomacy_nuance", 0.0)) + 0.45
+        raw_scores["architecture"] = float(raw_scores.get("architecture", 0.0)) + 0.35
+        raw_scores["procedural"] = max(0.0, float(raw_scores.get("procedural", 0.0)) - 0.45)
+        signals.append("domain:food_embodied_culture")
+
+    # Power reproduction / political recursion signal.
+    # Routes revolution, tyranny, oppression, legitimacy, and control dynamics
+    # away from procedural EN into structural power analysis.
+    _power_terms = [
+        "revolution", "revolutions", "tyrant", "tyrants", "tyranny",
+        "overthrew", "overthrow", "oppression", "oppressive",
+        "power", "authority", "legitimacy", "regime", "control",
+        "enemy", "democracy", "patriot", "patriotism",
+        "security and control", "surveillance",
+        "революц", "тиран", "тирания", "сверж", "угнет",
+        "власть", "авторитет", "легитим", "режим", "контроль",
+        "враг", "демократ", "патриот", "безопасность",
+    ]
+
+    if any(x in _t for x in _power_terms):
+        raw_scores["diplomacy_nuance"] = float(raw_scores.get("diplomacy_nuance", 0.0)) + 1.1
+        raw_scores["architecture"] = float(raw_scores.get("architecture", 0.0)) + 0.9
+        raw_scores["psycho_realism"] = float(raw_scores.get("psycho_realism", 0.0)) + 0.8
+        raw_scores["canon_norm"] = float(raw_scores.get("canon_norm", 0.0)) + 0.5
+        raw_scores["depth_boost"] = float(raw_scores.get("depth_boost", 0.0)) + 0.45
+        raw_scores["procedural"] = max(0.0, float(raw_scores.get("procedural", 0.0)) - 0.35)
+        signals.append("domain:power_reproduction")
+
+    # Sacred/metaphysical signal.
+    # Prevent EN identity-fallback on prompts about grace, holiness, prayer,
+    # eternity, sacred form, and metaphysical presence.
+    _sacred_terms = [
+        "grace", "holiness", "holy", "sacred", "faith", "prayer",
+        "god", "divine", "eternity", "eternal", "timeless",
+        "sin", "forgiveness", "redemption", "ritual", "temple",
+        "soul", "spirit", "presence", "transcendence",
+        "meaning without belief", "outside time", "beyond time",
+        "благодать", "святость", "священн", "вера", "молитва",
+        "бог", "божествен", "вечность", "вневрем", "грех",
+        "прощение", "искупление", "ритуал", "храм", "душа",
+        "дух", "присутствие", "трансценд",
+    ]
+
+    if any(x in _t for x in _sacred_terms):
+        raw_scores["sacral_symbolic"] = float(raw_scores.get("sacral_symbolic", 0.0)) + 1.6
+        raw_scores["existential"] = float(raw_scores.get("existential", 0.0)) + 1.1
+        raw_scores["metaphor_synthesis"] = float(raw_scores.get("metaphor_synthesis", 0.0)) + 0.8
+        raw_scores["logic_definition"] = float(raw_scores.get("logic_definition", 0.0)) + 0.5
+        raw_scores["depth_boost"] = float(raw_scores.get("depth_boost", 0.0)) + 1.0
+        raw_scores["procedural"] = max(0.0, float(raw_scores.get("procedural", 0.0)) - 0.7)
+        signals.append("domain:sacred_metaphysical")
+
+    # ES processor: vital expansion / social resonance / collective uptake.
+    # ES activates when a concept must move through a population and become socially alive.
+    _t = str(text or "").lower()
+
+    _es_resonance_terms = [
+        "resonance", "resonate", "uptake", "public", "general public",
+        "crowd", "collective", "population", "community", "movement",
+        "spread", "viral", "contagion", "adoption", "organic",
+        "street level", "everyday", "slang", "social energy",
+        "impact", "reception", "scale", "scalability", "traction",
+        "audience", "campaign", "mobilize", "movement",
+        "отклик", "резонанс", "публика", "общество", "толпа",
+        "коллектив", "сообщество", "движение", "распространение",
+        "вирусн", "принятие", "органический", "повседневн",
+        "уличн", "масштаб", "аудитория", "вовлеч", "социальная энергия",
+    ]
+
+    _es_score = 0.0
+    if any(x in _t for x in _es_resonance_terms):
+        _es_score += 1.4
+
+    if _es_score > 0:
+        # ES needs a strong prior against EN procedural capture.
+        # Public uptake / resonance / movement is not merely "how-to"; it is social kinetics.
+        raw_scores["strategy"] = float(raw_scores.get("strategy", 0.0)) + (_es_score * 1.55)
+        raw_scores["psycho_realism"] = float(raw_scores.get("psycho_realism", 0.0)) + min(1.2, _es_score * 0.75)
+        raw_scores["metaphor_synthesis"] = float(raw_scores.get("metaphor_synthesis", 0.0)) + min(0.8, _es_score * 0.40)
+        raw_scores["existential"] = float(raw_scores.get("existential", 0.0)) + min(0.35, _es_score * 0.15)
+
+        # Prevent EN from winning only because the prompt is phrased as "how do we".
+        # This is not a ban; it just stops procedural routing from swallowing social uptake.
+        raw_scores["procedural"] = max(0.0, float(raw_scores.get("procedural", 0.0)) - min(0.6, _es_score * 0.35))
+
+        signals.append("domain:es_vital_resonance")
+
+    # EN processor: hard operational / interface / protocol execution.
+    # EN is not the default processor for English text.
+    # It receives a domain boost only for explicit operational/protocol/interface work.
+    _t = str(text or "").lower()
+
+    _en_hard_protocol_terms = [
+        "api", "endpoint", "webhook", "schema", "payload", "adapter",
+        "workflow", "checklist", "manual", "runbook", "sop",
+        "step-by-step", "deployment", "deploy", "integration",
+        "crm", "billing", "database", "pipeline", "queue",
+        "input", "output", "handoff", "operator-facing",
+        "executable rules", "operational manual", "frontline",
+        "rate limit", "rollback", "health check", "interface contract",
+    ]
+
+    _en_ru_hard_terms = [
+        "api", "эндпоинт", "вебхук", "схема", "payload", "адаптер",
+        "чеклист", "инструкция", "регламент", "runbook",
+        "порядок действий", "деплой", "интеграция",
+        "crm", "биллинг", "база данных", "пайплайн", "очередь",
+        "вход", "выход", "передача", "операторский",
+        "исполнимые правила", "операционный мануал",
+        "rollback", "health check", "контракт интерфейса",
+    ]
+
+    _en_score = 0.0
+    if any(x in _t for x in _en_hard_protocol_terms):
+        _en_score += 1.35
+    if any(x in _t for x in _en_ru_hard_terms):
+        _en_score += 1.35
+
+    # Generic words like "process", "procedure", "steps", "standard", "usable",
+    # "actionable", "how", "structure", and "explain" are intentionally excluded.
+    # They are not enough to route into EN.
+
+    if _en_score > 0:
+        raw_scores["procedural"] = float(raw_scores.get("procedural", 0.0)) + _en_score
+        raw_scores["strategy"] = float(raw_scores.get("strategy", 0.0)) + min(0.65, _en_score * 0.32)
+        raw_scores["architecture"] = float(raw_scores.get("architecture", 0.0)) + min(0.45, _en_score * 0.22)
+        signals.append("domain:en_operational_protocol")
+
+    # FA processor: shadow / indirect mapping / metaphor as structural transfer.
+    # FA activates when the prompt asks for hidden structure, negative space,
+    # indirect bypass, metaphor as mapping, or ethical ambiguity.
+    _t = str(text or "").lower()
+
+    _fa_shadow_terms = [
+        "тень", "скрыт", "скрытая", "скрытое", "умолч", "между строк",
+        "фасад", "перифер", "негативное пространство", "negative space",
+        "shadow", "unsaid", "implied", "hidden", "facade", "periphery",
+    ]
+    _fa_metaphor_terms = [
+        "метафор", "образ", "изоморф", "перенос", "параллель",
+        "мост между", "отражение", "reflection", "metaphor",
+        "isomorphism", "analogy", "bridge",
+    ]
+    _fa_bypass_terms = [
+        "обход", "обходной", "непрям", "косвен", "защит", "defensive",
+        "bypass", "indirect", "orthogonal", "veil", "subtle",
+    ]
+    _fa_ethics_terms = [
+        "этическ", "моральн", "парадокс", "двусмыс", "неоднознач",
+        "долг", "сострадан", "gray area", "ambiguity", "moral paradox",
+        "double-bind", "duty", "compassion",
+    ]
+
+    _fa_score = 0.0
+    if any(x in _t for x in _fa_shadow_terms):
+        _fa_score += 1.2
+    if any(x in _t for x in _fa_metaphor_terms):
+        _fa_score += 1.1
+    if any(x in _t for x in _fa_bypass_terms):
+        _fa_score += 1.1
+    if any(x in _t for x in _fa_ethics_terms):
+        _fa_score += 1.0
+
+    if _fa_score > 0:
+        raw_scores["metaphor_synthesis"] = float(raw_scores.get("metaphor_synthesis", 0.0)) + _fa_score
+        raw_scores["diplomacy_nuance"] = float(raw_scores.get("diplomacy_nuance", 0.0)) + min(0.8, _fa_score * 0.35)
+        raw_scores["psycho_realism"] = float(raw_scores.get("psycho_realism", 0.0)) + min(0.6, _fa_score * 0.25)
+        raw_scores["depth_boost"] = float(raw_scores.get("depth_boost", 0.0)) + min(0.8, _fa_score * 0.25)
+        signals.append("domain:fa_shadow_indirect_mapping")
+
+
+    # SA processor: observer/root/first-cause ontological reduction.
+    # Map to existing topics only: logic_definition + existential + sacral_symbolic, with depth.
+    if '_RE_SA_OBSERVER_ROOT' in globals() and _RE_SA_OBSERVER_ROOT.search(text):
+        raw_scores["logic_definition"] = raw_scores.get("logic_definition", 0.0) + 1.8
+        raw_scores["existential"] = raw_scores.get("existential", 0.0) + 1.2
+        raw_scores["sacral_symbolic"] = raw_scores.get("sacral_symbolic", 0.0) + 0.8
+        raw_scores["procedural"] = max(0.0, raw_scores.get("procedural", 0.0) - 1.0)
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.8
+        signals.append("domain:sa_observer_root")
+
+
+    # ZH processor: field / void / centerless configuration.
+    # Map to existing topics only: strategy is ZH's strongest axis.
+    if '_RE_ZH_VOID_FIELD' in globals() and _RE_ZH_VOID_FIELD.search(text):
+        raw_scores["strategy"] = raw_scores.get("strategy", 0.0) + 3.0
+        raw_scores["architecture"] = raw_scores.get("architecture", 0.0) + 0.4
+        raw_scores["metaphor_synthesis"] = raw_scores.get("metaphor_synthesis", 0.0) + 0.4
+        raw_scores["procedural"] = max(0.0, raw_scores.get("procedural", 0.0) - 1.0)
+        raw_scores["depth_boost"] = raw_scores.get("depth_boost", 0.0) + 1.0
+        signals.append("domain:zh_void_field")
+
 
     # HY processor: atomic analysis, witness, invariant, code-as-territory.
     # Map to existing topics only; do not create new topic names here.
@@ -424,19 +636,20 @@ def classify_topic(raw_input: str, dialog_context: Dict[str, Any]) -> LOPResult:
     if not raw_scores:
         # fallback
         return LOPResult(
-            topic_vector={"procedural": 1.0},
+            topic_vector={"procedural": 0.35},
             dominant_topic="procedural",
             depth=0.0,
-            confidence=0.4,
-            trace={"signals": [], "raw_scores": {}, "normalized": {"procedural": 1.0}, "depth": {"depth": 0.0, "reasons": ["fallback"]}},
+            confidence=0.15,
+            trace={"signals": [], "raw_scores": {}, "normalized": {"procedural": 0.35}, "depth": {"depth": 0.0, "reasons": ["soft_fallback"]}},
         )
 
     dominant_topic = max(raw_scores.items(), key=lambda kv: kv[1])[0]
     top = float(raw_scores[dominant_topic])
     total = float(sum(raw_scores.values()) or 1.0)
 
-    # confidence = top share, with floor like before
-    confidence = min(1.0, max(0.45, top / total))
+    # confidence = top share.
+    # Keep the floor low so weak routing remains visibly weak instead of becoming pseudo-confident.
+    confidence = min(1.0, max(0.15, top / total))
 
     norm = _normalize_by_max(raw_scores)
 
