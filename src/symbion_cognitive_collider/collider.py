@@ -377,6 +377,111 @@ def _resonance_confidence(gap: float) -> float:
     return (gap - 0.10) / (0.25 - 0.10)
 
 
+
+def _choose_domain_replacement_for_en_soft_fallback(raw_input: str, ranked: list[tuple[str, float]]) -> tuple[str | None, float | None, str]:
+    """
+    EN must not become the language of uncertainty.
+
+    When EN wins only as a low-confidence fallback, choose a domain-appropriate
+    non-EN processor instead of blindly taking the first runner-up.
+    """
+    text = (raw_input or "").lower()
+    ranked_map = {str(lang): float(score) for lang, score in (ranked or [])}
+
+    domain_priorities: list[tuple[str, list[str], list[str]]] = [
+        (
+            "body_memory_grief_ritual",
+            [
+                "armenian", "armenia", "mother", "grandmother", "grandfather",
+                "died", "death", "dead", "grief", "garden", "ritual", "prayer",
+                "body", "flesh", "silence", "memory", "dream", "melody",
+                "wound", "scar", "tools", "attic", "inherited",
+            ],
+            ["hy", "ru", "fa", "sa", "de"],
+        ),
+        (
+            "craft_material_hand",
+            [
+                "clay", "pottery", "pot", "ceramic", "blacksmith", "metal",
+                "welding", "iron", "hand", "finger", "tissue", "surgeon",
+                "wood", "grain", "tool", "making", "craft",
+            ],
+            ["fa", "de", "hy", "ru", "zh"],
+        ),
+        (
+            "language_poetry_sound",
+            [
+                "poetry", "poem", "line", "translate", "translation", "language",
+                "sound", "song", "melody", "hummed", "calligraphy", "script",
+                "arabic", "direction", "write", "writing",
+            ],
+            ["fa", "hy", "ru", "sa", "zh"],
+        ),
+        (
+            "law_canon_contradiction",
+            [
+                "law", "legal", "international law", "case", "contradict",
+                "contradiction", "two correct", "system gives", "cancel out",
+                "canon", "rule", "judgment",
+            ],
+            ["la", "sa", "fr", "de", "ru"],
+        ),
+        (
+            "gnostic_hidden_institution",
+            [
+                "gnostic", "gnosticism", "hidden", "knowledge", "remembered",
+                "excavation", "prison", "blind god", "institution",
+                "systems engineering", "material world",
+            ],
+            ["fa", "sa", "ru", "zh", "de"],
+        ),
+        (
+            "space_power_field",
+            [
+                "space", "architecture", "hospital", "corridor", "waiting room",
+                "directionality", "sequence", "field", "inside", "outside",
+                "empire", "wall", "road", "city", "control",
+            ],
+            ["zh", "de", "fa", "la", "ru"],
+        ),
+        (
+            "education_transmission",
+            [
+                "student", "students", "teach", "learning", "plato",
+                "grades", "school", "teacher", "discover", "remembering",
+                "inventing",
+            ],
+            ["sa", "ru", "fa", "hy", "de"],
+        ),
+    ]
+
+    for reason, markers, priority in domain_priorities:
+        if any(m in text for m in markers):
+            for lang in priority:
+                if lang in ranked_map and lang != "en":
+                    return lang, ranked_map[lang], reason
+
+    for lang, score in ranked or []:
+        if str(lang) != "en":
+            return str(lang), float(score), "best_non_en_runner_up"
+
+    return None, None, "no_non_en_candidate"
+
+
+def _processor_role_for_lang(lang: str, fallback: str = "identity") -> str:
+    return {
+        "hy": "existential",
+        "fa": "mythic",
+        "ru": "psycho_realism",
+        "de": "system",
+        "zh": "strategy",
+        "sa": "symbolic",
+        "la": "canon",
+        "fr": "nuance",
+        "es": "social_resonance",
+        "en": "procedural",
+    }.get(str(lang), fallback)
+
 async def route_language(raw_input: str, dialog_context: Dict, life_vector: Optional[dict] = None) -> CognitionLanguageVector:
     raw_hash = sha256_text(raw_input or "")
     prompt_lang = detect_prompt_language(raw_input)
@@ -401,6 +506,22 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
         resonance_band = _resonance_band(float(resonance_gap))
         resonance_conf = _resonance_confidence(float(resonance_gap))
 
+        # EN must not be the language of uncertainty.
+        # If EN wins only under low resonance confidence, prefer the best non-EN runner-up.
+        if str(think_lang) == "en" and float(getattr(lop, "confidence", 0.0) or 0.0) <= 0.2:
+            _alt_lang, _alt_score, _alt_reason = _choose_domain_replacement_for_en_soft_fallback(raw_input, ranked)
+            if _alt_lang:
+                try:
+                    lop.trace["en_soft_fallback_replaced"] = True
+                    lop.trace["original_think_lang"] = "en"
+                    lop.trace["replacement_think_lang"] = str(_alt_lang)
+                    lop.trace["replacement_reason"] = str(_alt_reason)
+                    lop.trace["original_lop_confidence"] = float(getattr(lop, "confidence", 0.0) or 0.0)
+                except Exception:
+                    pass
+                think_lang = str(_alt_lang)
+                resonance_score = float(_alt_score or 0.0)
+
         # enrich routing trace (no schema changes needed)
         try:
             lop.trace["resonance_band"] = resonance_band
@@ -422,6 +543,16 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
         except Exception:
             pass
     mode = _derive_mode(lop.topic_vector, think_lang, _APOSTLES)
+
+    # If EN was replaced as a low-confidence fallback, do not keep EN/procedural mode.
+    # The adapter may derive processor_role from `mode`, so mode must reflect the replacement.
+    try:
+        if lop.trace.get("en_soft_fallback_replaced"):
+            mode = _processor_role_for_lang(think_lang, mode)
+    except Exception:
+        pass
+
+    processor_role = _processor_role_for_lang(think_lang, mode)
 
     # Dynamic collision
     _collision_telemetry = {}
@@ -511,6 +642,7 @@ async def route_language(raw_input: str, dialog_context: Dict, life_vector: Opti
         output_language=prompt_lang,
         topic=lop.dominant_topic,  # backward compat
         mode=mode,
+        processor_role=processor_role,
         confidence=lop.confidence,
         glossary={},
         collision=collision,
